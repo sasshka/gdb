@@ -1294,8 +1294,10 @@ read_command_lines_1 (gdb::function_view<const char * ()> read_next_line_func,
 
   dont_repeat ();
 
-  if (ret == invalid_control)
-    return NULL;
+  if (ret == invalid_control) {
+      free_command_lines(&next);
+      return NULL;
+  }
 
   return head;
 }
