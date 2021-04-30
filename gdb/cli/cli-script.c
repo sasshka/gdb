@@ -110,6 +110,8 @@ private:
    functions.  */
 static std::vector<std::unique_ptr<user_args>> user_args_stack;
 
+typedef std::unique_ptr<command_line, command_lines_deleter> command_line_up;
+
 /* An RAII-base class used to push/pop args on the user args
    stack.  */
 struct scoped_user_args_level
@@ -957,7 +959,7 @@ line_first_arg (const char *p)
    Otherwise, only "end" is recognized.  */
 
 static enum misc_command_type
-process_next_line (const char *p, struct command_line **command,
+process_next_line (const char *p, command_line_up *next,
 		   int parse_commands,
 		   gdb::function_view<void (const char *)> validator)
 
@@ -965,6 +967,8 @@ process_next_line (const char *p, struct command_line **command,
   const char *p_end;
   const char *p_start;
   int not_handled = 0;
+  struct command_line *commands = next->get();
+  struct command_line **command = &commands;
 
   /* Not sure what to do here.  */
   if (p == NULL)
@@ -1046,7 +1050,7 @@ process_next_line (const char *p, struct command_line **command,
 	{
 	  /* Note that we ignore the inline "compile command" form
 	     here.  */
-	  *command = build_command_line (compile_control, "");
+	 *command = build_command_line (compile_control, "");
 	  (*command)->control_u.compile.scope = COMPILE_I_INVALID_SCOPE;
 	}
       else if (cmd == guile_cmd_element && !inline_cmd)
@@ -1097,8 +1101,9 @@ recurse_read_control_structure (gdb::function_view<const char * ()> read_next_li
 {
   enum misc_command_type val;
   enum command_control_type ret;
-  struct command_line *child_tail, *next;
+  struct command_line *child_tail;
   counted_command_line *current_body = &current_cmd->body_list_0;
+  command_line_up next;
 
   child_tail = NULL;
 
@@ -1111,8 +1116,8 @@ recurse_read_control_structure (gdb::function_view<const char * ()> read_next_li
     {
       dont_repeat ();
 
-      next = NULL;
-      val = process_next_line (read_next_line_func (), &next, 
+      next.reset (nullptr);
+      val = process_next_line (read_next_line_func (), &next,
 			       current_cmd->control_type != python_control
 			       && current_cmd->control_type != guile_control
 			       && current_cmd->control_type != compile_control,
@@ -1156,19 +1161,19 @@ recurse_read_control_structure (gdb::function_view<const char * ()> read_next_li
 
       if (child_tail)
 	{
-	  child_tail->next = next;
+	  child_tail->next = next.get();
 	}
       else
-	*current_body = counted_command_line (next, command_lines_deleter ());
+	*current_body = counted_command_line (next.get(), command_lines_deleter ());
 
-      child_tail = next;
+      child_tail = next.get();
 
       /* If the latest line is another control structure, then recurse
 	 on it.  */
       if (multi_line_command_p (next->control_type))
 	{
 	  control_level++;
-	  ret = recurse_read_control_structure (read_next_line_func, next,
+	  ret = recurse_read_control_structure (read_next_line_func, next.get(),
 						validator);
 	  control_level--;
 
@@ -1240,10 +1245,11 @@ read_command_lines_1 (gdb::function_view<const char * ()> read_next_line_func,
 		      int parse_commands,
 		      gdb::function_view<void (const char *)> validator)
 {
-  struct command_line *tail, *next;
+  struct command_line *tail;
   counted_command_line head (nullptr, command_lines_deleter ());
   enum command_control_type ret;
   enum misc_command_type val;
+  command_line_up next;
 
   control_level = 0;
   tail = NULL;
@@ -1273,7 +1279,7 @@ read_command_lines_1 (gdb::function_view<const char * ()> read_next_line_func,
       if (multi_line_command_p (next->control_type))
 	{
 	  control_level++;
-	  ret = recurse_read_control_structure (read_next_line_func, next,
+	  ret = recurse_read_control_structure (read_next_line_func, next.get(),
 						validator);
 	  control_level--;
 
@@ -1283,13 +1289,13 @@ read_command_lines_1 (gdb::function_view<const char * ()> read_next_line_func,
 
       if (tail)
 	{
-	  tail->next = next;
+	  tail->next = next.get();
 	}
       else
 	{
-	  head = counted_command_line (next, command_lines_deleter ());
+	  head = counted_command_line (next.get(), command_lines_deleter ());
 	}
-      tail = next;
+      tail = next.get();
     }
 
   dont_repeat ();
