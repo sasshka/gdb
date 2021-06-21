@@ -80,7 +80,9 @@ struct gdbarch_selftest : public selftest
 	  }
 
 	reset ();
+        free((char *)arches[i]);
       }
+      free(arches);
 
     SELF_CHECK (pass);
   }
