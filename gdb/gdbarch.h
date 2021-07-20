@@ -1829,7 +1829,7 @@ extern void gdbarch_register (enum bfd_architecture architecture,
    _initialize phase this function only returns useful information
    once initialization has been completed.  */
 
-extern const char **gdbarch_printable_names (void);
+extern std::vector<const char *> gdbarch_printable_names (void);
 
 
 /* Helper function.  Search the list of ARCHES for a GDBARCH that

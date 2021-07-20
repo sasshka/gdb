@@ -5549,21 +5549,12 @@ struct gdbarch_registration
 
 static struct gdbarch_registration *gdbarch_registry = NULL;
 
-static void
-append_name (const char ***buf, int *nr, const char *name)
-{
-  *buf = XRESIZEVEC (const char *, *buf, *nr + 1);
-  (*buf)[*nr] = name;
-  *nr += 1;
-}
-
-const char **
+std::vector<const char *>
 gdbarch_printable_names (void)
 {
   /* Accumulate a list of names based on the registed list of
      architectures.  */
-  int nr_arches = 0;
-  const char **arches = NULL;
+  std::vector<const char *> arches;
   struct gdbarch_registration *rego;
 
   for (rego = gdbarch_registry;
@@ -5577,12 +5568,11 @@ gdbarch_printable_names (void)
 			_("gdbarch_architecture_names: multi-arch unknown"));
       do
 	{
-	  append_name (&arches, &nr_arches, ap->printable_name);
+	  arches.push_back (ap->printable_name);
 	  ap = ap->next;
 	}
       while (ap != NULL);
     }
-  append_name (&arches, &nr_arches, NULL);
   return arches;
 }
 
